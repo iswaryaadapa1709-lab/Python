@@ -1,0 +1,37 @@
+import numpy as np
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
+from sklearn.metrics import precision_score, recall_score, f1_score
+from scipy.stats import mode
+
+categories = ['alt.atheism', 'comp.graphics', 'sci.space', 'talk.religion.misc']
+data = fetch_20newsgroups(subset='all', categories=categories,
+                          remove=('headers', 'footers', 'quotes'))
+
+X = TfidfVectorizer(stop_words='english', max_features=1000).fit_transform(data.data)
+y = data.target
+
+k = len(categories)
+pred = KMeans(n_clusters=k, random_state=42, n_init=10).fit_predict(X)
+
+for c in range(k):
+    docs = np.where(pred == c)[0]
+    print(f"\nCluster {c+1}\n{'-'*40}")
+    print("Number of documents:", len(docs))
+    for i in docs[:5]:
+        print(f"\nDocument {i}: {data.data[i][:250].replace(chr(10), ' ')}")
+
+mapped = np.array([
+    mode(y[pred == c], keepdims=True).mode[0] for c in pred
+])
+
+purity = sum(
+    np.sum(y[pred == c] == mode(y[pred == c], keepdims=True).mode[0])
+    for c in range(k)
+) / len(y)
+
+print("\nPurity Score:", round(purity, 4))
+print("Precision:", round(precision_score(y, mapped, average='macro', zero_division=0), 4))
+print("Recall:", round(recall_score(y, mapped, average='macro', zero_division=0), 4))
+print("F1-Score:", round(f1_score(y, mapped, average='macro', zero_division=0), 4))
